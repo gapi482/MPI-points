@@ -150,7 +150,6 @@ public class NoJson {
         MPI.Finalize();
 
 
-
     }
 }
 // javac -cp .;%MPJ_HOME%/lib/mpj.jar NoJson.java
