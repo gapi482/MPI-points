@@ -114,7 +114,6 @@ public class NoJson {
         double CasPorazdeljeni = t0;
         System.out.println("Cas porazdeljeni: " + CasPorazdeljeni);
         MPI.Finalize();
-
     }
 }
 // javac -cp .;%MPJ_HOME%/lib/mpj.jar NoJson.java
