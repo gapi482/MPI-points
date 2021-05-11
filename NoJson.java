@@ -1,4 +1,5 @@
 import mpi.MPI;
+
 import java.util.Random;
 
 public class NoJson {
@@ -8,53 +9,42 @@ public class NoJson {
         double t0 = System.currentTimeMillis();
         MPI.Init(args);
         Random rand = new Random();
-        int cluster =5;
+        int cluster = 5;
         int tras = 12932;
         float[][] clusters = new float[cluster][5]; //old, old, new, new, št točk
         float[][] data = new float[tras][2]; //random točke
         boolean changed;
         int me = MPI.COMM_WORLD.Rank();
         int size = MPI.COMM_WORLD.Size();
-        float[][] clusterget = new float[cluster * (size-1)][5];
+        float[][] clusterget = new float[cluster * (size - 1)][5];
         int chunki = tras / size;
-        int maxi,add;
+        int maxi;
         int[] trash = new int[tras]; //pripada
         //////////////////////////////////////////////////////////////
         for (int i = 0; i < tras; i++) {
             data[i][0] = (float) (rand.nextFloat() * (55.1 - 46) + 46); //old NASTAVI GLEDE NA GEO. VIŠINO, ČE JE PREVEČ BO SLABO NATANČEN
             data[i][1] = (float) (rand.nextFloat() * (17.5 - 5.5) + 5.5); //old  NASTAVI GLEDE NA GEO. ŠIRINO, ČE JE PREVEČ BO SLABO NATANČEN
         }
-
-        while (true) {
-            //DELAJ
-            if (me == 0) {
-                if (clusters[0][0] == 0) {//generiraj podatke
-                    for (int i = 0; i < clusters.length; i++) {
-                        clusters[i][0] = (float) (rand.nextFloat() * (55.1 - 46) + 46); //old NASTAVI GLEDE NA GEO. VIŠINO, ČE JE PREVEČ BO SLABO NATANČEN
-                        clusters[i][1] = (float) (rand.nextFloat() * (17.5 - 5.5) + 5.5); //old  NASTAVI GLEDE NA GEO. ŠIRINO, ČE JE PREVEČ BO SLABO NATANČEN
-                        clusters[i][2] = 0; //new
-                        clusters[i][3] = 0;
-                        clusters[i][4] = 0;
-                    }
-
-                }
+        if (me == 0) {
+            //generiraj podatke
+            for (int i = 0; i < clusters.length; i++) {
+                clusters[i][0] = (float) (rand.nextFloat() * (55.1 - 46) + 46); //old NASTAVI GLEDE NA GEO. VIŠINO, ČE JE PREVEČ BO SLABO NATANČEN
+                clusters[i][1] = (float) (rand.nextFloat() * (17.5 - 5.5) + 5.5); //old  NASTAVI GLEDE NA GEO. ŠIRINO, ČE JE PREVEČ BO SLABO NATANČEN
+                clusters[i][2] = 0; //new
+                clusters[i][3] = 0;
+                clusters[i][4] = 0;
             }
-
-            if(cluster%2!=0)
-                add=cluster/2+1;
-            else
-                add=cluster/2;
-
-            MPI.COMM_WORLD.Scatter(clusters, 0, add, MPI.OBJECT, clusters, 0, add, MPI.OBJECT, 0);
+        }
+        //DELAJ
+        while (true) {
+            MPI.COMM_WORLD.Bcast(clusters, 0, clusters.length, MPI.OBJECT, 0);
             MPI.COMM_WORLD.Barrier();
-
             if (size != me + 1)
                 maxi = me * chunki + chunki;
             else
                 maxi = data.length;
             // Izracunaj
-
-            for (int j = 0; j < maxi; j++) {
+            for (int j = me*chunki; j < maxi; j++) {
                 float mini = (float) Math.hypot(Math.abs(clusters[0][0] - data[j][0]), Math.abs(clusters[0][1] - data[j][1]));//prvi cluster
 
                 for (int k = 0; k < clusters.length; k++) {
@@ -67,20 +57,20 @@ public class NoJson {
                 clusters[trash[j]][2] += data[j][0]; //seštevamo sproti v new
                 clusters[trash[j]][3] += data[j][1]; //seštevamo sproti v new
             }
-            if(me!=0)
+            if (me != 0)
                 for (float[] doubles : clusters) {
                     System.out.println(doubles[2] + " " + doubles[3] + " st tock " + doubles[4] + " old " + doubles[0] + " " + doubles[1]);
                 }
 
 
             //prejmi
-            MPI.COMM_WORLD.Gather(clusters, 0, add, MPI.OBJECT, clusterget, 0, add, MPI.OBJECT, 0);
+            MPI.COMM_WORLD.Gather(clusters, 0, clusters.length / size, MPI.OBJECT, clusterget, 0, clusters.length / size, MPI.OBJECT, 0);
 
             if (me == 0) {
 
-                System.out.println(clusterget[0][4]+" dela");
                 for (int j = 0; j < clusters.length; j++) {
-                    for (int i = 0; i < size-1; i++) {
+                    for (int i = 0; i < size - 1; i++) {
+                        System.out.println(clusterget[j+i*cluster][4]+" tock "+clusters[j][4]);
                         clusters[j][2] += clusterget[j + i * cluster][2]; //dodaj
                         clusters[j][3] += clusterget[j + i * cluster][3];
                         clusters[j][4] += clusterget[j + i * cluster][4];
@@ -92,8 +82,8 @@ public class NoJson {
                     if (clusters[i][4] != 0) { //ne smemo delit z 0
                         clusters[i][2] = clusters[i][2] / clusters[i][4];
                         clusters[i][3] = clusters[i][3] / clusters[i][4];
-                       // System.out.println(clusters[i][2] + " " + clusters[i][3] + " st tock " + clusters[i][4] + " old " + clusters[i][0] + " " + clusters[i][1]);
-                        if (clusters[i][0]!=clusters[i][2] && clusters[i][1]!=clusters[i][3]) { //pogledamo če sta še vedno enaka
+                        // System.out.println(clusters[i][2] + " " + clusters[i][3] + " st tock " + clusters[i][4] + " old " + clusters[i][0] + " " + clusters[i][1]);
+                        if (clusters[i][0] != clusters[i][2] && clusters[i][1] != clusters[i][3]) { //pogledamo če sta še vedno enaka
                             changed = true;
                         }
                     }
@@ -121,7 +111,7 @@ public class NoJson {
         double CasPorazdeljeni = t0;
         System.out.println("Cas porazdeljeni: " + CasPorazdeljeni);
         MPI.Finalize();
-        
+
     }
 }
 // javac -cp .;%MPJ_HOME%/lib/mpj.jar NoJson.java
