@@ -16,7 +16,7 @@ public class NoJson {
         boolean changed;
         int me = MPI.COMM_WORLD.Rank();
         int size = MPI.COMM_WORLD.Size();
-        float[][] clusterget = new float[cluster * (size - 1)][5];
+        float[][] clusterget = new float[cluster][5];
         int chunki = tras / size;
         int maxi;
         int[] trash = new int[tras]; //pripada
@@ -57,23 +57,23 @@ public class NoJson {
                 clusters[trash[j]][2] += data[j][0]; //seštevamo sproti v new
                 clusters[trash[j]][3] += data[j][1]; //seštevamo sproti v new
             }
-            if (me != 0)
-                for (float[] doubles : clusters) {
-                    System.out.println(doubles[2] + " " + doubles[3] + " st tock " + doubles[4] + " old " + doubles[0] + " " + doubles[1]);
-                }
+            MPI.COMM_WORLD.Barrier();
+            if (me != 0){
+                MPI.COMM_WORLD.Send(clusters,0,clusters.length,MPI.OBJECT,0,MPI.ANY_TAG);
+            }
 
 
             //prejmi
-            MPI.COMM_WORLD.Gather(clusters, 0, clusters.length / size, MPI.OBJECT, clusterget, 0, clusters.length / size, MPI.OBJECT, 0);
+            //MPI.COMM_WORLD.Gather(clusters, 0, clusters.length / size, MPI.OBJECT, clusterget, 0, clusters.length / size, MPI.OBJECT, 0);
 
-            if (me == 0) {
-
-                for (int j = 0; j < clusters.length; j++) {
-                    for (int i = 0; i < size - 1; i++) {
-                        System.out.println(clusterget[j+i*cluster][4]+" tock "+clusters[j][4]);
-                        clusters[j][2] += clusterget[j + i * cluster][2]; //dodaj
-                        clusters[j][3] += clusterget[j + i * cluster][3];
-                        clusters[j][4] += clusterget[j + i * cluster][4];
+            if (me == 0) {  // MPI.COMM_WORLD.Barrier();
+                for (int i = 1; i < size; i++) {
+                    MPI.COMM_WORLD.Recv(clusterget,0,clusters.length,MPI.OBJECT,i,MPI.ANY_TAG);
+                    for (int j = 0; j < clusters.length; j++) {
+                        //System.out.println(clusterget[j][4]+" tock "+clusters[j][4]);
+                        clusters[j][2] += clusterget[j][2]; //dodaj
+                        clusters[j][3] += clusterget[j][3];
+                        clusters[j][4] += clusterget[j][4];
                     }
                 }
                 //smo konec?
@@ -82,7 +82,7 @@ public class NoJson {
                     if (clusters[i][4] != 0) { //ne smemo delit z 0
                         clusters[i][2] = clusters[i][2] / clusters[i][4];
                         clusters[i][3] = clusters[i][3] / clusters[i][4];
-                        // System.out.println(clusters[i][2] + " " + clusters[i][3] + " st tock " + clusters[i][4] + " old " + clusters[i][0] + " " + clusters[i][1]);
+                         System.out.println(clusters[i][2] + " " + clusters[i][3] + " st tock " + clusters[i][4] + " old " + clusters[i][0] + " " + clusters[i][1]);
                         if (clusters[i][0] != clusters[i][2] && clusters[i][1] != clusters[i][3]) { //pogledamo če sta še vedno enaka
                             changed = true;
                         }
